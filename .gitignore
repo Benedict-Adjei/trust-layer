@@ -1,0 +1,14 @@
+.trustlayer-backups/
+# Local configuration and generated artifacts; examples are safe to commit.
+.env
+.env.*
+!.env.example
+**/venv/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+*.log
+*.sqlite3
+*.sqlite3-*
+*.db
+*.backup

@@ -1,90 +1,31 @@
-import json
-
-from fastapi import APIRouter, Depends, HTTPException
+"""Compatibility audit endpoints using the same storage as analysis."""
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.models.audit_log import AuditLog
-
-
-router = APIRouter(
-    prefix="/api/audit-logs",
-    tags=["Audit Logs"],
-)
-
-
-def serialize_log(log: AuditLog):
-    return {
-        "id": log.id,
-        "timestamp": log.timestamp,
-        "agent_name": log.agent_name,
-        "user_task": log.user_task,
-        "source_type": log.source_type,
-        "source_trust": log.source_trust,
-        "proposed_action": log.proposed_action,
-        "action_target": log.action_target,
-        "risk_score": log.risk_score,
-        "decision": log.decision,
-        "threat_categories": json.loads(log.threat_categories),
-        "triggered_signals": json.loads(log.triggered_signals),
-        "policy_violations": json.loads(log.policy_violations),
-        "reasons": json.loads(log.reasons),
-    }
+router = APIRouter(prefix="/api/audit-logs", tags=["Audit Logs"])
 
 
 @router.get("")
-def get_audit_logs(db: Session = Depends(get_db)):
-    logs = (
-        db.query(AuditLog)
-        .order_by(AuditLog.id.desc())
-        .all()
-    )
-
-    return {
-        "total": len(logs),
-        "logs": [serialize_log(log) for log in logs],
-    }
+def get_audit_logs(request: Request, limit: int = Query(50, ge=1, le=200),
+                   offset: int = Query(0, ge=0)):
+    page = request.app.state.database.audit(limit=limit, offset=offset)
+    return {"total": page["total"], "logs": page["items"],
+            "limit": limit, "offset": offset}
 
 
 @router.get("/export")
-def export_audit_logs(db: Session = Depends(get_db)):
-    logs = (
-        db.query(AuditLog)
-        .order_by(AuditLog.id.desc())
-        .all()
-    )
-
-    data = [serialize_log(log) for log in logs]
-
+def export_audit_logs(request: Request):
+    page = request.app.state.database.audit(limit=None)
     return JSONResponse(
-        content={
-            "export_type": "TrustLayer Audit Log",
-            "total": len(data),
-            "logs": data,
-        },
-        headers={
-            "Content-Disposition":
-                'attachment; filename="trustlayer_audit_logs.json"'
-        },
+        content={"export_type": "TrustLayer Audit Log", "total": page["total"],
+                 "logs": page["items"]},
+        headers={"Content-Disposition": 'attachment; filename="trustlayer_audit_logs.json"'},
     )
 
 
-@router.get("/{log_id}")
-def get_audit_log(
-    log_id: int,
-    db: Session = Depends(get_db),
-):
-    log = (
-        db.query(AuditLog)
-        .filter(AuditLog.id == log_id)
-        .first()
-    )
-
-    if log is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Audit log not found",
-        )
-
-    return serialize_log(log)
+@router.get("/{action_id}")
+def get_audit_log(action_id: str, request: Request):
+    items = request.app.state.database.audit(identifier=action_id)["items"]
+    if not items:
+        raise HTTPException(status_code=404, detail="Audit log not found")
+    return items[0]

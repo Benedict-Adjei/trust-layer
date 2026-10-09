@@ -1,0 +1,27 @@
+import { useState } from 'react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ArrowUpRight, Activity, ShieldCheck, ShieldX, Users } from 'lucide-react';
+import { getAudit } from '../services/api';
+import { Badge, Empty, ErrorState, Loading } from './shared';
+import { decisionColor, decisions } from '../services/presentation';
+import { useResource } from '../services/useResource';
+
+const loadDashboard = async () => {
+  const [recent, ...counts] = await Promise.all([getAudit(0, '', 200), ...decisions.map(d => getAudit(0, d, 1))]);
+  return { recent: recent.items, total: recent.total, counts: counts.map(c => c.total) };
+};
+
+export default function Dashboard({ revision, openConsole }: { revision: number; openConsole: () => void }) {
+  const [retry, setRetry] = useState(0);
+  const { data, error } = useResource(loadDashboard, `${revision}-${retry}`);
+  if (error) return <ErrorState message={error} retry={() => setRetry(v => v + 1)} />;
+  if (!data) return <Loading />;
+  const distribution = decisions.map((decision, i) => ({ name: decision === 'REVIEW REQUIRED' ? 'REVIEW' : decision, count: data.counts[i], fill: decisionColor(decision) }));
+  const trend = [...data.recent].reverse().map((row, index) => ({ index: index + 1, risk: row.result.risk_score }));
+  const average = data.recent.length ? Math.round(data.recent.reduce((sum, r) => sum + r.result.risk_score, 0) / data.recent.length) : null;
+  return <><section className="hero-panel"><div><span className="eyebrow">VISIBILITY BEFORE EXECUTION</span><h2>A clear view of agent risk.</h2><p>Inspect proposed actions, enforce permission boundaries, and keep an explainable record of every decision.</p><button className="primary" onClick={openConsole}>Open Security Console <ArrowUpRight size={16} /></button></div><div className="hero-symbol" aria-hidden="true"><ShieldCheck size={68} /><span>TRUST BOUNDARY</span></div></section>
+  <div className="metrics">{[{ label: 'Actions analyzed', value: data.total, icon: Activity, detail: 'All recorded analyses' }, { label: 'Allowed actions', value: data.counts[0], icon: ShieldCheck, detail: 'Passed security checks' }, { label: 'Review required', value: data.counts[1], icon: Users, detail: 'Human review requested' }, { label: 'Blocked actions', value: data.counts[2], icon: ShieldX, detail: 'Stopped by security checks' }].map(m => <section className="metric panel" key={m.label}><div><span>{m.label}</span><m.icon size={18} /></div><strong>{m.value.toLocaleString()}</strong><small>{m.detail}</small></section>)}</div>
+  <div className="chart-grid"><section className="panel"><div className="panel-heading"><div><h2>Decision distribution</h2><p className="muted">Lifetime audit counts</p></div></div>{data.total ? <div className="chart" role="img" aria-label={distribution.map(d => `${d.name}: ${d.count}`).join(', ')}><ResponsiveContainer width="100%" height="100%"><BarChart data={distribution}><CartesianGrid stroke="#243043" vertical={false} /><XAxis dataKey="name" stroke="#94a3b8" fontSize={11} /><YAxis allowDecimals={false} stroke="#94a3b8" fontSize={11} /><Tooltip contentStyle={{ background: '#111c2b', border: '1px solid #334155', color: '#fff' }} /><Bar dataKey="count" radius={[5, 5, 0, 0]}>{distribution.map(d => <Cell key={d.name} fill={d.fill} />)}</Bar></BarChart></ResponsiveContainer></div> : <Empty title="No decisions yet">Run a scenario to start your audit history.</Empty>}</section>
+  <section className="panel"><div className="panel-heading"><div><h2>Risk activity</h2><p className="muted">Latest {data.recent.length} analyses · oldest to newest</p></div><span className="small-tag">AVG {average ?? '—'}/100</span></div>{trend.length ? <div className="chart" role="img" aria-label={`Risk scores for ${trend.length} recent analyses. Average ${average} out of 100.`}><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend}><defs><linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#54b6ff" stopOpacity={0.4} /><stop offset="100%" stopColor="#54b6ff" stopOpacity={0} /></linearGradient></defs><CartesianGrid stroke="#243043" vertical={false} /><XAxis dataKey="index" stroke="#94a3b8" fontSize={11} /><YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={11} /><Tooltip contentStyle={{ background: '#111c2b', border: '1px solid #334155', color: '#fff' }} /><Area type="linear" dataKey="risk" stroke="#54b6ff" fill="url(#riskGradient)" strokeWidth={2} isAnimationActive={false} /></AreaChart></ResponsiveContainer></div> : <Empty title="Awaiting your first analysis">Risk activity appears after a scenario is analyzed.</Empty>}</section></div>
+  <section className="panel"><div className="panel-heading"><h2>Recent assessments</h2><span className="small-tag">LIVE AUDIT DATA</span></div>{data.recent.length ? <div className="table-wrap"><table><thead><tr><th>Agent / action</th><th>Decision</th><th>Risk</th><th>Recorded</th></tr></thead><tbody>{data.recent.slice(0, 5).map(row => <tr key={row.action_id}><td><strong>{row.action.agent_name}</strong><small>{row.action.proposed_action}</small></td><td><Badge decision={row.result.decision} /></td><td>{row.result.risk_score}/100</td><td>{new Date(row.created_at).toLocaleString()}</td></tr>)}</tbody></table></div> : <Empty title="Your audit trail starts here"><button className="secondary" onClick={openConsole}>Run a scenario</button></Empty>}</section></>;
+}

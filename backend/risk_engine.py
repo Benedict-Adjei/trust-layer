@@ -112,7 +112,7 @@ def calculate_risk(
         threats.append("phishing_or_social_engineering")
 
     # 8. Explicit user approval
-    if action.user_approved:
+    if action.explicit_user_approval:
         score -= 20
         signals.append("User explicitly approved the action")
 
