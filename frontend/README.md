@@ -11,8 +11,12 @@ npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
 Start the backend on localhost:8000 first. See the root README for the complete
-demo walkthrough. VITE_API_URL defaults to http://127.0.0.1:8000. Vite reads this
-at startup/build time, so restart/rebuild after configuration changes.
+demo walkthrough. Requests default to `/api` on the current origin. The Vite
+development server proxies these to http://127.0.0.1:8000. On Vercel the root
+service rewrites route them to FastAPI. Leave VITE_API_URL empty for this setup;
+set it only for a separate backend origin. Vite reads it at startup/build time,
+so restart/rebuild after configuration changes. Vite preview has no development
+proxy; set VITE_API_URL before building when previewing with a separate backend.
 
 ```powershell
 npm run lint

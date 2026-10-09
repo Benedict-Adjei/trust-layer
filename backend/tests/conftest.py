@@ -5,6 +5,8 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def isolate_provider(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("VERCEL", raising=False)
     monkeypatch.setenv("FEATHERLESS_ENABLED", "false")
     monkeypatch.setenv("FEATHERLESS_API_KEY", "")
     monkeypatch.setenv("FEATHERLESS_MODEL", "")

@@ -2,6 +2,9 @@
 
 **Explainable security decisions before an AI agent acts.**
 
+For the confirmed Vercel Services deployment with Supabase audit storage, see
+[Vercel setup](docs/VERCEL.md).
+
 AI agents turn text into actions. A customer email, supplier document or webpage
 can contain instructions that conflict with the user's task. TrustLayer puts a
 security boundary between an agent's proposal and execution: **ALLOW**, **REVIEW

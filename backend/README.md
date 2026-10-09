@@ -34,6 +34,9 @@ An approval never overrides a hard block. External and payment effects are
 inferred from known operation names as well as request flags. Resources are exact
 allowlists; unspecified files are not implicitly authorized.
 
+On Vercel, set `DATABASE_URL` to a Supabase transaction pooler PostgreSQL URL.
+The backend requires this value on Vercel and stores audit history persistently
+in PostgreSQL. See [Vercel setup](../docs/VERCEL.md). Locally without DATABASE_URL,
 SQLite defaults to `backend/data/trustlayer.sqlite3`, independent of working
 directory. Override with `TRUSTLAYER_DB_PATH`. Startup creates tables and seeds
 missing catalog rows without deleting existing records. Audits use UTC timestamps,

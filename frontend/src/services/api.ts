@@ -1,4 +1,6 @@
-const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+// Browser requests use the public /api routes on the deployment's own origin.
+// Vercel runtime bindings belong to server functions, not Vite client bundles.
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 export type Decision = 'ALLOW' | 'REVIEW REQUIRED' | 'BLOCK';
 export interface AgentAction {
   agent_name: string; user_task: string; source_type: string; source_trust: string;

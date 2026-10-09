@@ -24,7 +24,10 @@ async def lifespan(application: FastAPI):
     application.state.database = Database()
     application.state.database.initialize()
 
-    yield
+    try:
+        yield
+    finally:
+        application.state.database.close()
 
 
 app = FastAPI(
