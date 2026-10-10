@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.actions import router as actions_router
 from app.api.audit_logs import router as audit_logs_router
@@ -13,6 +15,9 @@ from app.services.contextual_analyzer import ContextualAnalyzer
 from app.database import Database
 
 
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     load_environment()
@@ -21,8 +26,13 @@ async def lifespan(application: FastAPI):
         ContextualSettings.from_environment()
     )
 
-    application.state.database = Database()
-    application.state.database.initialize()
+    try:
+        database = Database()
+        database.initialize()
+    except (ImportError, RuntimeError, SQLAlchemyError, ValueError):
+        logger.exception("Backend database initialization failed")
+        raise
+    application.state.database = database
 
     try:
         yield

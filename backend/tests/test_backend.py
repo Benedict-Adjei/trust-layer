@@ -1,7 +1,9 @@
 import json
+import logging
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import Database
 from app.main import app
@@ -24,6 +26,21 @@ def payload(index=0, **changes):
 def test_health_and_root(client):
     assert client.get("/api/health").json() == {"status": "healthy", "service": "TrustLayer API", "version": "0.1.0"}
     assert client.get("/").json()["name"] == "TrustLayer"
+
+
+def test_database_startup_failure_is_logged_and_propagated(caplog, tmp_path, monkeypatch):
+    monkeypatch.setenv("TRUSTLAYER_DB_PATH", str(tmp_path / "audit.sqlite3"))
+
+    def fail_initialize(_database):
+        raise SQLAlchemyError("injected startup failure")
+
+    monkeypatch.setattr(Database, "initialize", fail_initialize)
+    with caplog.at_level(logging.ERROR, logger="app.main"):
+        with pytest.raises(SQLAlchemyError, match="injected startup failure"):
+            with TestClient(app):
+                pass
+
+    assert "Backend database initialization failed" in caplog.text
 
 
 @pytest.mark.parametrize("origin", ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"])
